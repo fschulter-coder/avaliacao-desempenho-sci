@@ -92,7 +92,7 @@ async def analisar(files: List[UploadFile] = File(...)):
     })
 
     response = anthropic_client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5",
         max_tokens=16000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": pdf_blocks}],
