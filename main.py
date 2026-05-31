@@ -9,18 +9,16 @@ from pathlib import Path
 from typing import List
 
 import anthropic
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import supabase as sb
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 app = FastAPI(title="Portal Avaliações SCI")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # Lovable vai definir a origem real
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,28 +27,9 @@ app.add_middleware(
 # ── Clients ───────────────────────────────────────────────────────────────────
 anthropic_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-supabase_client = sb.create_client(
-    os.environ["SUPABASE_URL"],
-    os.environ["SUPABASE_SERVICE_KEY"],     # service role — só no backend
-)
-
-security = HTTPBearer()
-
-# ── Auth helper ───────────────────────────────────────────────────────────────
-def get_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Valida o JWT do Supabase e retorna o user dict."""
-    token = credentials.credentials
-    try:
-        user = supabase_client.auth.get_user(token)
-        if not user or not user.user:
-            raise HTTPException(status_code=401, detail="Token inválido")
-        return user.user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Token inválido ou expirado")
-
 # ── Paths ─────────────────────────────────────────────────────────────────────
-ASSETS_DIR   = Path(__file__).parent / "assets"
-OUTPUTS_DIR  = Path(tempfile.gettempdir()) / "sci_outputs"
+ASSETS_DIR  = Path(__file__).parent / "assets"
+OUTPUTS_DIR = Path(tempfile.gettempdir()) / "sci_outputs"
 OUTPUTS_DIR.mkdir(exist_ok=True)
 
 # ── System prompt (skill embutida) ────────────────────────────────────────────
@@ -64,10 +43,7 @@ def health():
 
 
 @app.post("/analisar")
-async def analisar(
-    files: List[UploadFile] = File(...),
-    user: dict = Depends(get_user),
-):
+async def analisar(files: List[UploadFile] = File(...)):
     """
     Recebe N PDFs de avaliação, chama o Claude, executa o Node.js gerado
     e devolve os .docx gerados.
@@ -124,7 +100,6 @@ async def analisar(
 
     # 3. Extrai e parseia o JSON
     raw = response.content[0].text.strip()
-    # Remove possíveis backticks que escapem do prompt
     raw = raw.replace("```json", "").replace("```", "").strip()
     try:
         result = json.loads(raw)
@@ -132,8 +107,8 @@ async def analisar(
         raise HTTPException(status_code=500, detail=f"Claude retornou JSON inválido: {e}\n\n{raw[:500]}")
 
     # 4. Executa cada script Node.js e coleta os arquivos
-    job_id    = str(uuid.uuid4())
-    job_dir   = OUTPUTS_DIR / job_id
+    job_id  = str(uuid.uuid4())
+    job_dir = OUTPUTS_DIR / job_id
     job_dir.mkdir()
 
     generated_files = []
@@ -143,8 +118,8 @@ async def analisar(
         ciclo     = analise["ciclo_mais_recente"]
 
         for script_key, file_prefix in [
-            ("script_relatorio",  f"relatorio_{sobrenome}_{ciclo}"),
-            ("script_avaliador",  f"analise_avaliador_{sobrenome}_{ciclo}"),
+            ("script_relatorio", f"relatorio_{sobrenome}_{ciclo}"),
+            ("script_avaliador", f"analise_avaliador_{sobrenome}_{ciclo}"),
         ]:
             script_code = analise.get(script_key, "")
             if not script_code:
@@ -163,49 +138,32 @@ async def analisar(
                     detail=f"Erro ao gerar {file_prefix}.docx:\n{proc.stderr[-1000:]}",
                 )
 
+            # O script salva em OUTPUTS_DIR — move para a pasta do job
             docx_path = OUTPUTS_DIR / f"{file_prefix}.docx"
             if docx_path.exists():
                 dest = job_dir / f"{file_prefix}.docx"
                 shutil.move(str(docx_path), str(dest))
-                generated_files.append({
-                    "nome":     analise["nome"],
-                    "tipo":     "relatorio" if "relatorio" in file_prefix else "avaliador",
-                    "filename": f"{file_prefix}.docx",
-                    "job_id":   job_id,
-                })
 
-    # 5. Salva metadados no Supabase para o histórico do usuário
-    supabase_client.table("analises").insert({
-        "user_id":    user.id,
-        "job_id":     job_id,
-        "arquivos":   json.dumps(generated_files),
-        "colaboradores": json.dumps(result.get("colaboradores", [])),
-    }).execute()
+            generated_files.append({
+                "nome":     analise["nome"],
+                "tipo":     "relatorio" if "relatorio" in file_prefix else "avaliador",
+                "filename": f"{file_prefix}.docx",
+                "job_id":   job_id,
+            })
 
     return {
-        "job_id": job_id,
+        "job_id":        job_id,
         "colaboradores": result.get("colaboradores", []),
-        "arquivos": generated_files,
+        "arquivos":      generated_files,
     }
 
 
 @app.get("/download/{job_id}/{filename}")
-def download(
-    job_id: str,
-    filename: str,
-    user: dict = Depends(get_user),
-):
-    """Download de um .docx gerado, verificando que pertence ao usuário."""
-    # Confirma que o job pertence ao usuário
-    rows = (
-        supabase_client.table("analises")
-        .select("job_id")
-        .eq("user_id", user.id)
-        .eq("job_id", job_id)
-        .execute()
-    )
-    if not rows.data:
-        raise HTTPException(status_code=403, detail="Acesso negado")
+def download(job_id: str, filename: str):
+    """Download de um .docx gerado."""
+    # Sanitiza para evitar path traversal
+    if ".." in job_id or ".." in filename:
+        raise HTTPException(status_code=400, detail="Caminho inválido")
 
     file_path = OUTPUTS_DIR / job_id / filename
     if not file_path.exists():
@@ -216,16 +174,3 @@ def download(
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=filename,
     )
-
-
-@app.get("/historico")
-def historico(user: dict = Depends(get_user)):
-    """Retorna todas as análises anteriores do usuário."""
-    rows = (
-        supabase_client.table("analises")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return rows.data
