@@ -35,6 +35,50 @@ OUTPUTS_DIR.mkdir(exist_ok=True)
 # ── System prompt (skill embutida) ────────────────────────────────────────────
 SYSTEM_PROMPT = open(Path(__file__).parent / "system_prompt.txt").read()
 
+
+def chamar_claude(pdf_blocks: list, instrucao: str) -> str:
+    """Chama o Claude com os PDFs e uma instrução, retorna o script Node.js."""
+    messages = pdf_blocks + [{"type": "text", "text": instrucao}]
+    response = anthropic_client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=16000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": messages}],
+    )
+    raw = response.content[0].text.strip()
+    # Remove possíveis backticks
+    raw = raw.replace("```javascript", "").replace("```js", "").replace("```", "").strip()
+    return raw
+
+
+def executar_script(script_code: str, job_dir: Path, file_prefix: str) -> str:
+    """Executa um script Node.js e retorna o path do .docx gerado."""
+    script_path = job_dir / f"{file_prefix}.js"
+    script_path.write_text(script_code, encoding="utf-8")
+
+    proc = subprocess.run(
+        ["node", str(script_path)],
+        capture_output=True, text=True, timeout=120,
+    )
+    if proc.returncode != 0:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao gerar {file_prefix}.docx:\n{proc.stderr[-2000:]}",
+        )
+
+    # O script salva em OUTPUTS_DIR — move para a pasta do job
+    docx_path = OUTPUTS_DIR / f"{file_prefix}.docx"
+    dest = job_dir / f"{file_prefix}.docx"
+    if docx_path.exists():
+        shutil.move(str(docx_path), str(dest))
+    elif not dest.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Arquivo {file_prefix}.docx não foi gerado.\nStdout: {proc.stdout[-1000:]}",
+        )
+    return f"{file_prefix}.docx"
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -44,124 +88,81 @@ def health():
 
 @app.post("/analisar")
 async def analisar(files: List[UploadFile] = File(...)):
-    """
-    Recebe N PDFs de avaliação, chama o Claude, executa o Node.js gerado
-    e devolve os .docx gerados.
-    """
     if not files:
         raise HTTPException(status_code=400, detail="Nenhum arquivo enviado")
 
-    # 1. Lê todos os PDFs e converte para base64
+    # 1. Converte PDFs para base64
     pdf_blocks = []
     for f in files:
         data = await f.read()
         b64 = base64.standard_b64encode(data).decode("utf-8")
         pdf_blocks.append({
             "type": "document",
-            "source": {
-                "type": "base64",
-                "media_type": "application/pdf",
-                "data": b64,
-            },
+            "source": {"type": "base64", "media_type": "application/pdf", "data": b64},
             "title": f.filename,
         })
 
-    # 2. Chama o Claude com todos os PDFs
-    pdf_blocks.append({
-        "type": "text",
-        "text": (
-            "Analise os PDFs de avaliação de desempenho acima seguindo o sistema prompt. "
-            "Retorne APENAS um objeto JSON com a estrutura:\n"
-            "{\n"
-            '  "colaboradores": ["Nome Completo 1", "Nome Completo 2"],\n'
-            '  "analises": [\n'
-            "    {\n"
-            '      "nome": "Nome Completo",\n'
-            '      "sobrenome": "Sobrenome",\n'
-            '      "ciclo_mais_recente": "mar2025",\n'
-            '      "script_relatorio": "...código Node.js completo para gerar relatorio_sobrenome_ciclo.docx...",\n'
-            '      "script_avaliador": "...código Node.js completo para gerar analise_avaliador_sobrenome_ciclo.docx..."\n'
-            "    }\n"
-            "  ]\n"
-            "}\n\n"
-            "Cada script deve ser Node.js completo e auto-suficiente usando o pacote 'docx'. "
-            "Os arquivos de assets estão em: " + str(ASSETS_DIR) + "\n"
-            "Salve os .docx em: " + str(OUTPUTS_DIR) + "\n"
-            "Não inclua markdown, apenas JSON puro."
-        ),
-    })
-
-    response = anthropic_client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=32000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": pdf_blocks}],
-    )
-
-    # 3. Extrai e parseia o JSON
-    raw = response.content[0].text.strip()
-    raw = raw.replace("```json", "").replace("```", "").strip()
+    # 2. Primeira chamada: identifica colaboradores
+    identificacao_raw = chamar_claude(pdf_blocks, (
+        "Leia os PDFs e retorne APENAS um JSON puro (sem markdown) com:\n"
+        '{"colaboradores": [{"nome": "Nome Completo", "sobrenome": "sobrenome", "ciclo_mais_recente": "mar2026"}]}\n'
+        "Nada mais, apenas o JSON."
+    ))
+    identificacao_raw = identificacao_raw.replace("```json", "").replace("```", "").strip()
     try:
-        result = json.loads(raw)
+        identificacao = json.loads(identificacao_raw)
     except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Claude retornou JSON inválido: {e}\n\n{raw[:500]}")
+        raise HTTPException(status_code=500, detail=f"Erro ao identificar colaboradores: {e}\n{identificacao_raw[:300]}")
 
-    # 4. Executa cada script Node.js e coleta os arquivos
+    colaboradores = identificacao.get("colaboradores", [])
+    if not colaboradores:
+        raise HTTPException(status_code=500, detail="Nenhum colaborador identificado nos PDFs")
+
     job_id  = str(uuid.uuid4())
     job_dir = OUTPUTS_DIR / job_id
     job_dir.mkdir()
 
     generated_files = []
 
-    for analise in result.get("analises", []):
-        sobrenome = analise["sobrenome"].lower()
-        ciclo     = analise["ciclo_mais_recente"]
+    # 3. Para cada colaborador, duas chamadas separadas
+    for colab in colaboradores:
+        nome      = colab["nome"]
+        sobrenome = colab["sobrenome"].lower()
+        ciclo     = colab["ciclo_mais_recente"]
 
-        for script_key, file_prefix in [
-            ("script_relatorio", f"relatorio_{sobrenome}_{ciclo}"),
-            ("script_avaliador", f"analise_avaliador_{sobrenome}_{ciclo}"),
-        ]:
-            script_code = analise.get(script_key, "")
-            if not script_code:
-                continue
+        # 3a. Gera script do relatório do colaborador
+        script_relatorio = chamar_claude(pdf_blocks, (
+            f"Analise os PDFs de avaliação de desempenho do colaborador '{nome}' seguindo o sistema prompt.\n"
+            f"Gere APENAS o código Node.js completo e auto-suficiente usando o pacote 'docx' para criar o arquivo "
+            f"relatorio_{sobrenome}_{ciclo}.docx.\n"
+            f"Assets em: {ASSETS_DIR}\n"
+            f"Salve o arquivo em: {OUTPUTS_DIR}/relatorio_{sobrenome}_{ciclo}.docx\n"
+            "Retorne APENAS o código JavaScript, sem explicações, sem markdown."
+        ))
+        filename_rel = executar_script(script_relatorio, job_dir, f"relatorio_{sobrenome}_{ciclo}")
+        generated_files.append({"nome": nome, "tipo": "relatorio", "filename": filename_rel, "job_id": job_id})
 
-            script_path = job_dir / f"{file_prefix}.js"
-            script_path.write_text(script_code, encoding="utf-8")
-
-            proc = subprocess.run(
-                ["node", str(script_path)],
-                capture_output=True, text=True, timeout=120,
-            )
-            if proc.returncode != 0:
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Erro ao gerar {file_prefix}.docx:\n{proc.stderr[-1000:]}",
-                )
-
-            # O script salva em OUTPUTS_DIR — move para a pasta do job
-            docx_path = OUTPUTS_DIR / f"{file_prefix}.docx"
-            if docx_path.exists():
-                dest = job_dir / f"{file_prefix}.docx"
-                shutil.move(str(docx_path), str(dest))
-
-            generated_files.append({
-                "nome":     analise["nome"],
-                "tipo":     "relatorio" if "relatorio" in file_prefix else "avaliador",
-                "filename": f"{file_prefix}.docx",
-                "job_id":   job_id,
-            })
+        # 3b. Gera script da análise do avaliador
+        script_avaliador = chamar_claude(pdf_blocks, (
+            f"Analise os PDFs de avaliação de desempenho do colaborador '{nome}' seguindo o sistema prompt.\n"
+            f"Gere APENAS o código Node.js completo e auto-suficiente usando o pacote 'docx' para criar o arquivo "
+            f"analise_avaliador_{sobrenome}_{ciclo}.docx.\n"
+            f"Assets em: {ASSETS_DIR}\n"
+            f"Salve o arquivo em: {OUTPUTS_DIR}/analise_avaliador_{sobrenome}_{ciclo}.docx\n"
+            "Retorne APENAS o código JavaScript, sem explicações, sem markdown."
+        ))
+        filename_av = executar_script(script_avaliador, job_dir, f"analise_avaliador_{sobrenome}_{ciclo}")
+        generated_files.append({"nome": nome, "tipo": "avaliador", "filename": filename_av, "job_id": job_id})
 
     return {
         "job_id":        job_id,
-        "colaboradores": result.get("colaboradores", []),
+        "colaboradores": [c["nome"] for c in colaboradores],
         "arquivos":      generated_files,
     }
 
 
 @app.get("/download/{job_id}/{filename}")
 def download(job_id: str, filename: str):
-    """Download de um .docx gerado."""
-    # Sanitiza para evitar path traversal
     if ".." in job_id or ".." in filename:
         raise HTTPException(status_code=400, detail="Caminho inválido")
 
