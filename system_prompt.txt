@@ -1,0 +1,928 @@
+---
+name: avaliacao-desempenho-sci
+description: >
+  Gera análise evolutiva completa de avaliações de desempenho da SCI (Sistemas Contábeis) e produz dois arquivos .docx profissionais POR COLABORADOR:
+  (1) Relatório do Colaborador com perfil geral, evolução por competência, pontos positivos e de melhoria, e plano de desenvolvimento;
+  (2) Análise do Avaliador com pontos fortes e oportunidades de melhoria do processo avaliativo.
+  Suporta múltiplos colaboradores simultaneamente — agrupa os PDFs automaticamente por nome e gera um par de documentos para cada pessoa.
+  Use SEMPRE que o usuário anexar PDFs de avaliações de desempenho da SCI, mencionar "avaliação de desempenho SCI", "IDP", "fábrica de software SCI", "relatório de colaborador SCI", "avaliação semestral" ou pedir análise evolutiva de ciclos avaliativos — para um ou vários colaboradores ao mesmo tempo.
+  Não exige que os manuais de critérios sejam re-anexados — todos os critérios estão embutidos nesta skill.
+---
+
+# Avaliação de Desempenho SCI — Skill Completa
+
+## Visão Geral
+
+Esta skill processa qualquer quantidade de avaliações de desempenho semestrais da SCI — de um ou múltiplos colaboradores simultaneamente — e produz dois documentos `.docx` profissionais **por colaborador**. Todos os critérios metodológicos da SCI estão embutidos — não é necessário re-anexar os manuais.
+
+**Outputs gerados por colaborador:**
+1. `relatorio_[sobrenome]_[mes][ano].docx` — Análise do colaborador
+2. `analise_avaliador_[sobrenome]_[mes][ano].docx` — Análise do processo avaliativo e do avaliador
+
+---
+
+## Passo 0 — Identificação e Agrupamento por Colaborador
+
+**Este passo é obrigatório antes de qualquer análise.**
+
+Leia todos os PDFs recebidos e agrupe-os por colaborador usando o campo **Nome** do cabeçalho de cada avaliação.
+
+```
+Para cada PDF lido:
+  - Extraia: Nome completo, Cargo, Departamento, Avaliador, Data do ciclo
+  - Agrupe todos os ciclos do mesmo colaborador juntos
+
+Resultado esperado:
+  Colaborador A → [ciclo1, ciclo2, ciclo3 ...]
+  Colaborador B → [ciclo1, ciclo2 ...]
+  ...
+```
+
+**Regras de agrupamento:**
+- Mesmo nome exato → mesmo colaborador (mesmo que cargo tenha mudado entre ciclos)
+- Nomes diferentes → colaboradores distintos, processar separadamente
+- Em caso de ambiguidade (nome parcialmente diferente), perguntar ao usuário antes de prosseguir
+
+**Antes de iniciar a análise, informe ao usuário:**
+> "Identifiquei N colaborador(es): [lista de nomes]. Vou gerar 2 documentos para cada um. Confirma?"
+
+Aguarde confirmação antes de continuar, a menos que haja apenas 1 colaborador.
+
+---
+
+## Passo 1 — Leitura e Extração dos Dados
+
+Para **cada colaborador** identificado no Passo 0, extraia os dados de todos os seus ciclos:
+
+```
+- Data do ciclo (ex: Março/2024)
+- Período avaliativo (ex: 01/01/2024 a 29/02/2024)
+- Nome, cargo, departamento, unidade, avaliador
+- IDP (valor numérico + categoria textual)
+- Para cada competência avaliada:
+  - Nome da competência
+  - Para cada comportamento: descrição + nota textual
+  - Comentários do avaliador (se houver)
+- Observações finais
+```
+
+Ordene os ciclos de cada colaborador cronologicamente antes de analisar.
+
+**Processamento sequencial:** processe um colaborador de cada vez, do início ao fim (análise + 2 documentos), antes de iniciar o próximo. Informe o usuário sobre o progresso:
+> "Gerando documentos de [Nome] (1/N)..."
+> "Gerando documentos de [Nome] (2/N)..."
+
+---
+
+## Passo 2 — Critérios Metodológicos da SCI
+
+Consulte o arquivo `references/criterios-sci.md` para a metodologia completa (régua de intensidade, escala IDP, competências por nível e cargo, premissa de avaliação de líderes). Esses dados são necessários para contextualizar as notas e o IDP corretamente nos documentos.
+
+---
+
+## Passo 3 — Análise do Colaborador
+
+Monte a análise com estas seções obrigatórias:
+
+### 3.1 Perfil Geral
+- Trajetória na empresa (tempo, cargos, promoções identificadas)
+- Característica dominante do perfil (baseada no padrão das notas ao longo do tempo)
+- Principal ativo e principal desafio recorrente
+
+### 3.2 Matriz Evolutiva
+Tabela com todas as competências avaliadas × todos os ciclos. Colunas: competência/comportamento, nota por ciclo (abreviada), tendência (↑↓→~). Inclua coluna de tendência calculada comparando primeiro e último ciclo disponível.
+
+### 3.3 Itens com Evolução Positiva
+Para cada item que melhorou: o que era, o que virou, em qual ciclo a mudança ocorreu, evidência do comentário do avaliador.
+
+### 3.4 Itens com Queda ou Estagnação
+Idem para regressões. Destaque especial para itens cronicamente baixos (mesma nota em 3+ ciclos).
+
+### 3.5 Pontos Positivos Atuais
+Baseado no ciclo mais recente. Use caixas visuais destacadas com ícone ✅.
+
+### 3.6 Pontos a Melhorar
+Baseado no ciclo mais recente + padrão histórico. Use caixas visuais com ícone ⚠️. Marque como URGENTE/RECORRENTE itens presentes em 3+ ciclos.
+
+### 3.7 Plano de Desenvolvimento
+Tabela de 3 colunas: Curto Prazo (6 meses) / Médio Prazo (12 meses) / Longo Prazo (18+ meses).
+
+### 3.8 Consideração Final
+Parágrafo síntese conectando o IDP atual com o potencial de evolução e a principal alavanca de desenvolvimento.
+
+---
+
+## Passo 4 — Análise do Avaliador
+
+### Premissa Obrigatória (leia antes de analisar)
+Para líderes, o resultado da equipe É evidência válida e esperada para avaliar competências de liderança. Um time com indicadores cronicamente ruins evidencia falha na assertividade das orientações, nas cobranças ou na escalação de problemas. NÃO classifique como erro metodológico quando o avaliador usa resultado do setor para justificar nota de liderança — isso é correto dentro da metodologia SCI.
+
+### 4.1 Pontos Positivos do Avaliador
+Analise e documente:
+- Continuidade e visão longitudinal
+- Registros de evolução com evidências específicas
+- Honestidade e transparência nas críticas
+- Vinculação correta entre postura do líder e resultado do time
+- Visão holística do colaborador além das notas
+
+### 4.2 Problemas Genuínos (apenas estes são válidos)
+Procure exclusivamente por:
+- **Canal errado para ocorrências operacionais** (ex: usar nota de competência comportamental para registrar batidas de ponto)
+- **Incoerência nota × comentário** (o texto justifica uma nota diferente da atribuída)
+- **Comentários duplicados** entre competências distintas no mesmo ciclo
+- **Ausência de PDI documentado** para comportamentos cronicamente baixos (3+ ciclos)
+- **Comentários genéricos** em notas de liderança que não especificam qual comportamento do líder causou o problema (oportunidade de melhoria, não erro)
+
+### 4.3 Recomendações
+Para cada problema identificado: recomendação concreta para o avaliador E para o processo/sistema da empresa.
+
+---
+
+## Passo 5 — Geração dos Documentos .docx
+
+> ⚠️ **OBRIGATÓRIO:** Todos os documentos gerados por esta skill DEVEM usar o padrão visual oficial da SCI.
+> Antes de escrever qualquer código de geração, leia **`/mnt/skills/user/docx-padrao-sci-sistemas/SKILL.md`**.
+> Isso é inegociável — independentemente de o usuário ter pedido ou não o padrão SCI.
+
+O padrão SCI define: cabeçalho com banner e logo, rodapé com banner, fonte **Exo 2.0** obrigatória em todos os TextRun, margens A4 específicas e assets em `/mnt/skills/user/docx-padrao-sci-sistemas/assets/`. Toda instrução técnica de geração (dimensões das imagens, margem superior protegida, transformation dos banners) está no SKILL.md da skill de padrão.
+
+Além do padrão visual, consulte o arquivo `references/template-docx.md` desta skill para a estrutura de conteúdo dos dois documentos (seções, tabelas de competências, PDI, análise do avaliador).
+
+**Paleta de notas** (aplicar sobre o padrão SCI):
+| Nota | Cor texto | Cor fundo |
+|------|-----------|-----------|
+| Supera | `#1A7C3E` | `#E8F5E9` |
+| Atende | `#2E74B5` | `#EEF4FB` |
+| Parcial | `#D46A00` | `#FFF3E0` |
+| Mínimo | `#C00000` | `#FDECEA` |
+| — (n/a) | `#888888` | `#F5F5F5` |
+
+**Nomenclatura dos arquivos:**
+- `relatorio_[sobrenome]_[mes][ano].docx`
+- `analise_avaliador_[sobrenome]_[mes][ano].docx`
+
+Salvar em `/mnt/user-data/outputs/` e apresentar com `present_files`.
+
+---
+
+## Checklist de Qualidade
+
+Aplicar para **cada colaborador** antes de apresentar os arquivos:
+
+**Agrupamento e separação:**
+- [ ] Todos os PDFs foram lidos e agrupados corretamente por colaborador
+- [ ] Nenhum ciclo de um colaborador foi atribuído a outro
+- [ ] Nomes dos arquivos de saída contêm o sobrenome correto de cada colaborador
+
+**Conteúdo:**
+- [ ] Ciclos ordenados cronologicamente
+- [ ] Matriz evolutiva inclui todos os comportamentos de todos os ciclos daquele colaborador
+- [ ] IDP contextualizado na escala correta (faixa 0,81–1,00 = Atende)
+- [ ] Mudança de competências entre ciclos documentada (se houver)
+- [ ] Análise do avaliador NÃO classifica resultado do setor como erro metodológico
+
+**Técnico:**
+- [ ] Documentos validados com `python /mnt/skills/public/docx/scripts/office/validate.py`
+- [ ] Todos os arquivos em `/mnt/user-data/outputs/`
+- [ ] `present_files` chamado com **todos** os arquivos gerados de uma vez ao final
+# Critérios Metodológicos — Avaliação de Desempenho SCI
+
+## 1. Calendário
+
+- **Periodicidade:** Semestral
+- **Ciclo de Março:** referência setembro do ano anterior a fevereiro do ano corrente
+- **Ciclo de Setembro:** referência março a agosto do ano corrente
+- **Quem participa:** CLT com mínimo 6 meses de empresa
+- **Quem não participa:** CLT com menos de 6 meses, estagiários, cooperados, PJ, menor aprendiz
+- **Troca de avaliador:** quem trocou de superior é avaliado pelo que foi responsável por mais tempo no período
+
+---
+
+## 2. IDP — Índice de Desempenho Profissional
+
+Número único que resume o desempenho do colaborador. Varia entre 0,00 e 1,33.
+
+| Faixa IDP | Categoria |
+|-----------|-----------|
+| 0,00 a 0,66 | Não atende |
+| 0,67 a 0,80 | Atende parcialmente |
+| 0,81 a 1,00 | Atende |
+| 1,01 a 1,10 | Entrega com destaque |
+| 1,11 a 1,33 | Alta performance |
+
+**Atenção ao contextualizar:** Um IDP de 0,87 está na faixa "Atende" — não é crítico, mas está no limite inferior dessa faixa. Um IDP de 0,94–0,96 está confortavelmente na faixa "Atende".
+
+---
+
+## 3. Régua de Intensidade (por comportamento)
+
+Cada comportamento individual é avaliado com uma das cinco notas abaixo:
+
+| Nota numérica | Descrição |
+|---------------|-----------|
+| 0,00 | Não atende |
+| 0,33 | Atende minimamente |
+| 0,66 | Atende parcialmente |
+| 1,00 | Atende as expectativas |
+| 1,33 | Supera as expectativas |
+
+**Nas avaliações reais, as notas aparecem como texto:** "Não atende", "Atende minimamente", "Atende parcialmente", "Atende as expectativas", "Supera as expectativas".
+
+**Conversão para análise comparativa:**
+- "Supera" = 1,33
+- "Atende" = 1,00
+- "Parcial" / "Atende parcialmente" = 0,66
+- "Mínimo" / "Atende minimamente" = 0,33
+- "Não atende" = 0,00
+
+---
+
+## 4. Competências por Ciclo
+
+### Ciclo de Março/2024 (formato antigo)
+Aplicado para **Colaboradores**, **Líderes** e **Coordenadores** (com marcações diferentes por nível):
+
+| Competência | Colabs | Líderes | Coords |
+|-------------|--------|---------|--------|
+| Aprendizado Contínuo | ✓ | | |
+| Comunicação | ✓ | ✓ | ✓ |
+| Engajamento | ✓ | ✓ | |
+| Gestão de Conflitos | | ✓ | ✓ |
+| Liderança | | ✓ | ✓ |
+| Liderança Técnica | | ✓ | ✓ |
+| Organização | ✓ | ✓ | ✓ |
+| Planejamento | | | ✓ |
+| Respeito | ✓ | ✓ | ✓ |
+| Responsabilidade | ✓ | | |
+| Solução de Problemas | ✓ | ✓ | ✓ |
+| Trabalho em Equipe | ✓ | | |
+
+### A partir de Setembro/2024 (formato novo — Manual V2)
+Conjunto atualizado. Competências em **negrito** foram adicionadas ou tiveram comportamentos reformulados:
+
+**Para Colaboradores:**
+- Aprendizado Contínuo
+- **Autonomia** *(nova)*
+- **Comprometimento** *(nova)*
+- Comunicação
+- Orientação ao Cliente
+- Responsabilidade
+- Solução de Problemas
+- Trabalho em Equipe
+
+**Para Líderes (além das de colaborador):**
+- Gestão de Conflitos
+- Liderança
+- Liderança Técnica
+- **Orientação ao Cliente** *(nova para líderes)*
+
+**Competências removidas a partir de Set/2024:**
+- Engajamento, Organização, Respeito (fundidas ou reformuladas)
+
+> ⚠️ **Importante para análise:** A mudança de competências entre Mar/2024 e Set/2024 explica por que certas competências aparecem apenas no primeiro ciclo. Isso deve ser documentado na matriz evolutiva para evitar interpretações incorretas de "desaparecimento" de competências.
+
+---
+
+## 5. Comportamentos por Competência (Set/2024 em diante)
+
+### APRENDIZADO CONTÍNUO
+1. Aprende rapidamente novos conceitos técnicos e os aplica para resolver problemas práticos.
+2. Adapta-se a novas ferramentas, metodologias e orientações, buscando continuamente aprimorar seu trabalho.
+
+### AUTONOMIA
+1. Realiza com sucesso suas atividades sem necessidade de constante supervisão.
+2. Gerencia seu tempo de forma eficiente, executando todas as suas tarefas.
+
+### COMPROMETIMENTO
+1. Exerce suas atividades com dedicação e consistência.
+2. Foca no resultado final do trabalho, não apenas ao que compete a si.
+
+### COMUNICAÇÃO
+1. Fala e escreve com clareza, respeito e objetivo, de forma que suas mensagens sejam de fácil compreensão.
+2. Ouve e lê atentamente, assegurando que compreende completamente as informações antes de responder ou agir.
+
+### GESTÃO DE CONFLITOS *(líderes)*
+1. Identifica e resolve conflitos de forma construtiva.
+2. Resolve conflitos o mais breve possível, com inteligência emocional.
+
+### LIDERANÇA *(líderes)*
+1. Desenvolve a equipe através de feedback e orientação constante, alinhado ao propósito da empresa.
+2. Treina, capacita e desenvolve as pessoas nas questões comportamentais.
+
+### LIDERANÇA TÉCNICA *(líderes)*
+1. Realiza encontros e reuniões com equipe, pares e superiores para alinhar procedimentos e resolver problemas, registrando em ata.
+2. Concede autonomia para a equipe, delegando e dando suporte técnico sempre que necessário.
+
+### ORIENTAÇÃO AO CLIENTE
+1. Compreende as necessidades dos clientes (internos e externos) e busca superar suas expectativas.
+2. Responde prontamente a demandas e feedbacks dos clientes (internos e externos), buscando soluções rápidas e eficazes.
+
+### RESPONSABILIDADE
+1. Entrega as tarefas conforme as prioridades e prazos combinados.
+2. Cumpre a jornada de trabalho conforme acordado, respeitando os horários e limites estabelecidos.
+
+### SOLUÇÃO DE PROBLEMAS
+1. Utiliza conhecimento técnico para entregar soluções assertivas, com rapidez e seguindo os processos internos.
+2. Entrega soluções definitivas, garantindo que o problema seja resolvido por completo.
+
+### TRABALHO EM EQUIPE
+1. Relaciona-se com empatia e de maneira positiva com todas as pessoas, em favor de um objetivo comum.
+2. Mostra-se disponível para ajudar a equipe e compartilha informações de forma proativa.
+
+---
+
+## 6. Premissa de Avaliação de Líderes
+
+**Regra fundamental:** Para líderes, o resultado da equipe é evidência direta e válida para avaliar competências de liderança.
+
+**Justificativa:** O papel do líder é produzir resultados através das pessoas. Um time com indicadores cronicamente ruins evidencia que:
+- As orientações não estão sendo suficientemente assertivas, **ou**
+- Os feedbacks corretivos não estão chegando com a firmeza necessária, **ou**
+- Problemas que deveriam ser escalados à coordenação não estão sendo escalados.
+
+**Implicação para análise:** Quando um avaliador usa resultado do setor para justificar nota em competências de Liderança, Liderança Técnica ou Orientação ao Cliente — isso é **metodologicamente correto**, não um erro. O que pode ser aprimorado é a especificidade do comentário: detalhar qual comportamento do líder causou ou perpetuou o problema do setor torna o feedback mais acionável.
+
+---
+
+## 7. Classificação de Problemas no Processo Avaliativo
+
+### Problemas genuínos (classificar como erro):
+- Usar nota de competência comportamental para registrar ocorrência operacional (ex: ponto, absenteísmo)
+- Incoerência direta entre nota numérica e justificativa textual
+- Comentários literalmente idênticos em competências distintas no mesmo ciclo
+- Comportamento cronicamente baixo (3+ ciclos) sem PDI formal documentado
+
+### Oportunidades de melhoria (não são erros):
+- Comentários de liderança que usam resultado do setor sem especificar o comportamento do líder causador
+- Ausência de comentário em notas positivas (poderia reforçar o que funcionou)
+- Menção a membros da equipe sem indicar ação específica esperada do líder
+
+### NÃO é erro (corrigir análise se classificado assim):
+- Usar resultado do setor como evidência para notas de Liderança, Liderança Técnica ou Orientação ao Cliente
+- Manter nota baixa em ciclos consecutivos quando o problema persiste
+- Mencionar resultado do time ao avaliar competências de gestão de pessoas
+# Template DOCX — Instruções de Geração
+
+## Setup Obrigatório
+
+```bash
+npm install -g docx
+```
+
+```javascript
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  AlignmentType, HeadingLevel, BorderStyle, WidthType, ShadingType,
+  VerticalAlign, LevelFormat, PageBreak
+} = require('docx');
+const fs = require('fs');
+```
+
+---
+
+## Configuração Base do Documento
+
+```javascript
+const doc = new Document({
+  numbering: {
+    config: [
+      { reference: "bullets", levels: [{ level: 0, format: LevelFormat.BULLET, text: "•",
+          alignment: AlignmentType.LEFT,
+          style: { paragraph: { indent: { left: 720, hanging: 360 } } } }] },
+    ]
+  },
+  styles: {
+    default: { document: { run: { font: "Arial", size: 22 } } },
+    paragraphStyles: [
+      { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 32, bold: true, font: "Arial" },
+        paragraph: { spacing: { before: 360, after: 180 }, outlineLevel: 0 } },
+      { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 26, bold: true, font: "Arial" },
+        paragraph: { spacing: { before: 280, after: 120 }, outlineLevel: 1 } },
+    ]
+  },
+  sections: [{
+    properties: {
+      page: {
+        size: { width: 11906, height: 16838 }, // A4
+        margin: { top: 1200, right: 1200, bottom: 1200, left: 1200 }
+      }
+    },
+    children: [ /* conteúdo */ ]
+  }]
+});
+```
+
+---
+
+## Funções Utilitárias Padrão
+
+```javascript
+const border  = { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" };
+const borders = { top: border, bottom: border, left: border, right: border };
+const noBorder  = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+const noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
+
+// H1 com linha inferior
+function heading1(text) {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_1,
+    children: [new TextRun({ text, bold: true, size: 32, color: "1F4E79" })],
+    spacing: { before: 360, after: 180 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "1F4E79", space: 1 } }
+  });
+}
+
+// H2
+function heading2(text, color = "2E74B5") {
+  return new Paragraph({
+    heading: HeadingLevel.HEADING_2,
+    children: [new TextRun({ text, bold: true, size: 26, color })],
+    spacing: { before: 280, after: 120 }
+  });
+}
+
+// H3 inline (sem heading level oficial)
+function heading3(text) {
+  return new Paragraph({
+    children: [new TextRun({ text, bold: true, size: 24, color: "404040" })],
+    spacing: { before: 200, after: 80 }
+  });
+}
+
+// Parágrafo justificado
+function para(text, opts = {}) {
+  return new Paragraph({
+    children: [new TextRun({ text, size: 22, color: "333333", ...opts })],
+    spacing: { before: 60, after: 60 },
+    alignment: opts.alignment || AlignmentType.JUSTIFIED
+  });
+}
+
+// Item de lista com bullet
+function bullet(text) {
+  return new Paragraph({
+    numbering: { reference: "bullets", level: 0 },
+    children: [new TextRun({ text, size: 22, color: "333333" })],
+    spacing: { before: 40, after: 40 }
+  });
+}
+
+// Caixa de destaque com borda esquerda colorida
+function highlightBox(icon, title, text, bg, titleColor) {
+  return new Table({
+    width: { size: 9360, type: WidthType.DXA },
+    columnWidths: [9360],
+    rows: [new TableRow({ children: [new TableCell({
+      borders: {
+        top:    { style: BorderStyle.SINGLE, size: 8,  color: titleColor },
+        bottom: { style: BorderStyle.NONE,   size: 0,  color: "FFFFFF" },
+        left:   { style: BorderStyle.SINGLE, size: 16, color: titleColor },
+        right:  { style: BorderStyle.NONE,   size: 0,  color: "FFFFFF" },
+      },
+      shading: { fill: bg, type: ShadingType.CLEAR },
+      margins: { top: 120, bottom: 120, left: 200, right: 200 },
+      children: [
+        new Paragraph({ children: [new TextRun({ text: `${icon}  ${title}`, bold: true, size: 22, color: titleColor })] }),
+        new Paragraph({ children: [new TextRun({ text, size: 21, color: "333333" })], spacing: { before: 60 } })
+      ]
+    })]})],
+  });
+}
+```
+
+---
+
+## Paleta de Cores de Notas
+
+```javascript
+function scoreStyle(nota) {
+  const map = {
+    "Supera":  { c: "1A7C3E", bg: "E8F5E9" },
+    "Atende":  { c: "2E74B5", bg: "EEF4FB" },
+    "Parcial": { c: "D46A00", bg: "FFF3E0" },
+    "Mínimo":  { c: "C00000", bg: "FDECEA" },
+  };
+  return map[nota] || { c: "888888", bg: "F5F5F5" };
+}
+```
+
+---
+
+## Estrutura do Relatório do Colaborador
+
+Seções obrigatórias (na ordem):
+
+1. **Capa** — título, subtítulo, tabela de dados do colaborador, tabela de IDP por ciclo
+2. **Seção 1** — Critérios de Avaliação (régua de intensidade + escala IDP + mudança de competências se houver)
+3. **Seção 2** — Perfil Geral
+4. **Seção 3** — Evolução ao Longo do Tempo
+   - 3.1 Matriz evolutiva completa
+   - 3.2 Itens com evolução positiva
+   - 3.3 Itens com queda ou estagnação
+5. **Seção 4** — Pontos Positivos Atuais (caixas verdes ✅)
+6. **Seção 5** — Pontos a Melhorar (caixas laranja ⚠️)
+7. **Seção 6** — Plano de Desenvolvimento (tabela 3 colunas)
+8. **Seção 7** — Consideração Final
+9. **Rodapé** — data de geração, ciclos analisados, avaliador
+
+---
+
+## Estrutura da Análise do Avaliador
+
+Seções obrigatórias (na ordem):
+
+1. **Capa** — título, tabela avaliador/contexto, nota metodológica sobre a análise
+2. **Seção 1** — Premissa Metodológica (resultado do time como reflexo da liderança)
+   - Incluir caixa com o princípio + revisão de análises anteriores se aplicável
+3. **Seção 2** — Visão Geral (tabela 2 colunas: pontos fortes × oportunidades)
+4. **Seção 3** — Pontos Positivos com Evidências
+   - Tabela de evidências: Ciclo | Competência | Nota | Comentário | Análise
+5. **Seção 4** — Oportunidades de Melhoria — Problemas Genuínos
+   - Tabela de evidências para cada problema
+   - Caixa 💡 com recomendação após cada problema
+6. **Seção 5** — Recomendações Consolidadas (para o avaliador + para o processo da empresa)
+7. **Seção 6** — Consideração Final
+8. **Rodapé** — data de geração, caráter analítico/desenvolvimento
+
+---
+
+## Regras Críticas docx-js
+
+- **NUNCA** usar `\n` dentro de TextRun — criar Paragraph separado
+- **NUNCA** usar unicode bullets (`•`, `\u2022`) — usar `LevelFormat.BULLET` com numbering config
+- **NUNCA** usar `WidthType.PERCENTAGE` em tabelas — sempre `WidthType.DXA`
+- **SEMPRE** definir `columnWidths` na tabela E `width` em cada célula (devem somar igual)
+- **SEMPRE** usar `ShadingType.CLEAR` (nunca `SOLID`) para fundo de células
+- PageBreak deve estar dentro de um Paragraph, nunca sozinho
+- Para US Letter: 12240 × 15840 DXA | Para A4: 11906 × 16838 DXA
+
+---
+
+## Validação e Saída
+
+```bash
+# Validar após gerar
+python /mnt/skills/public/docx/scripts/office/validate.py /home/claude/arquivo.docx
+
+# Copiar para outputs
+cp /home/claude/arquivo.docx /mnt/user-data/outputs/arquivo.docx
+```
+
+Sempre usar `present_files` ao final para entregar os arquivos ao usuário.
+
+---
+
+## Nomenclatura de Arquivos
+
+```
+relatorio_[sobrenome_minusculo]_[mes3letras][ano].docx
+analise_avaliador_[sobrenome_minusculo]_[mes3letras][ano].docx
+
+Exemplos:
+relatorio_serafin_mar2026.docx
+analise_avaliador_serafin_mar2026.docx
+```
+O mês/ano usado é o do ciclo mais recente das avaliações fornecidas.
+---
+name: docx-padrao-sci-sistemas
+description: >
+  Gera documentos Word (.docx) no padrão visual oficial da SCI Sistemas Contábeis,
+  com cabeçalho e rodapé em imagem, fonte obrigatória Exo 2.0, e margens A4 corretas.
+  Use esta skill SEMPRE que o usuário pedir para criar um documento Word, .docx, relatório,
+  comunicado, memorando ou qualquer texto formal que deva seguir o padrão SCI Sistemas —
+  mesmo que a palavra "skill" não apareça. Acione também quando o usuário disser "gera no
+  padrão SCI", "documento padrão", "cria um doc da SCI", "faz um Word no padrão" ou qualquer
+  variação que envolva produção de arquivo .docx seguindo a identidade visual da SCI Sistemas.
+---
+
+# DOCX Padrão SCI Sistemas
+
+Gera documentos `.docx` com a identidade visual oficial da SCI Sistemas:
+cabeçalho com banner e logo, rodapé com banner, fonte **Exo 2.0** em todo o conteúdo.
+
+---
+
+## Visão Geral do Padrão Visual
+
+| Elemento | Especificação |
+|----------|--------------|
+| **Página** | A4 — 11906 × 16838 DXA |
+| **Margem superior** | 2835 DXA (~5 cm) — reserva espaço para o cabeçalho visual |
+| **Margem inferior** | 1559 DXA (~2,75 cm) |
+| **Margens laterais** | 1134 DXA (~2 cm) cada |
+| **Cabeçalho (distância)** | 720 DXA |
+| **Rodapé (distância)** | 720 DXA |
+| **Fonte padrão** | **Exo 2.0** (obrigatória em todo o documento) |
+| **Corpo do texto** | 12pt (sz=24), justificado |
+| **Título principal** | 20pt (sz=40), negrito |
+| **Subtítulo / Heading2** | 14pt (sz=28), negrito |
+
+### Dimensões das imagens (valores extraídos do XML original)
+
+| Imagem | EMU (cx × cy) | Pixels (transformation) | Largura real |
+|--------|--------------|------------------------|--------------|
+| `header_logo.png` | 4139565 × 1173480 | **width: 435, height: 123** | ~11,5 cm |
+| `header_banner.png` | 7590790 × 1085850 | **width: 797, height: 114** | ~21 cm (página inteira) |
+| `footer_banner.png` | 7571105 × 728980 | **width: 795, height: 77** | ~21 cm (página inteira) |
+
+---
+
+## ⚠️ REGRAS CRÍTICAS — LEIA ANTES DE ESCREVER QUALQUER CÓDIGO
+
+1. **NUNCA use `\n` dentro de TextRun** — use Paragraphs separados.
+2. **NUNCA use bullets unicode** — use `LevelFormat.BULLET` com `numbering`.
+3. **A fonte Exo 2.0 é OBRIGATÓRIA** em todos os TextRun e nos estilos default/heading. Sem exceção.
+4. **O conteúdo NUNCA pode sobrescrever o cabeçalho.** A margem superior (`top: 2835`) já está calibrada para que o texto comece abaixo do banner. **Não reduza essa margem.**
+5. **Use EXATAMENTE os valores de `transformation` da tabela acima.** Valores menores farão os banners não ocuparem a largura total da página.
+6. **Sempre valide o arquivo após geração** com `python scripts/office/validate.py`.
+7. **Imagens do cabeçalho/rodapé** são carregadas a partir da pasta `assets/` desta skill (paths abaixo).
+
+---
+
+## Paths das Imagens
+
+```
+/mnt/skills/user/docx-padrao-sci-sistemas/assets/header_logo.png    → cabeçalho: logo SCI
+/mnt/skills/user/docx-padrao-sci-sistemas/assets/header_banner.png  → cabeçalho: banner principal (~21 cm)
+/mnt/skills/user/docx-padrao-sci-sistemas/assets/footer_banner.png  → rodapé: banner inferior (~21 cm)
+```
+
+> **Se os arquivos não existirem no path acima**, tente `/home/claude/skill-output/docx-padrao-sci-sistemas/assets/` ou peça ao usuário para reenviar o documento original `2023_07_DOCUMENTO_SCI_SISTEMAS.docx` e extraia as imagens novamente com:
+> ```bash
+> python /mnt/skills/public/docx/scripts/office/unpack.py documento.docx unpacked/
+> # Imagens estarão em unpacked/word/media/
+> # image1.png = header_logo | image2.png = header_banner | image3.png = footer_banner
+> ```
+
+---
+
+## Template JavaScript Completo
+
+```javascript
+const {
+  Document, Packer, Paragraph, TextRun, Header, Footer,
+  ImageRun, AlignmentType, HeadingLevel, LevelFormat,
+  Table, TableRow, TableCell, BorderStyle, WidthType,
+  ShadingType, VerticalAlign, PageNumber, PageBreak
+} = require('docx');
+const fs = require('fs');
+const path = require('path');
+
+// ─── Carrega imagens ────────────────────────────────────────────────────────
+const ASSETS = '/mnt/skills/user/docx-padrao-sci-sistemas/assets';
+const imgHeaderLogo   = fs.readFileSync(path.join(ASSETS, 'header_logo.png'));
+const imgHeaderBanner = fs.readFileSync(path.join(ASSETS, 'header_banner.png'));
+const imgFooterBanner = fs.readFileSync(path.join(ASSETS, 'footer_banner.png'));
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+const exoRun = (text, opts = {}) => new TextRun({
+  text,
+  font: 'Exo 2.0',
+  size: opts.size ?? 24,
+  bold: opts.bold ?? false,
+  color: opts.color,
+  italics: opts.italics ?? false,
+});
+
+const exoParagraph = (text, opts = {}) => new Paragraph({
+  alignment: opts.alignment ?? AlignmentType.JUSTIFIED,
+  spacing: { after: opts.spacingAfter ?? 120, line: 264, lineRule: 'auto' },
+  children: [exoRun(text, opts)],
+});
+
+// ─── Cabeçalho ──────────────────────────────────────────────────────────────
+// IMPORTANTE: As imagens usam posicionamento absoluto (anchor) atrás do texto.
+// A margem superior (top: 2835) garante que nenhum parágrafo do corpo alcance
+// a área do cabeçalho. NÃO REDUZA a margem top.
+//
+// CRÍTICO: Use os valores de transformation EXATAMENTE como abaixo.
+// Os banners têm ~21 cm de largura e devem ocupar a página inteira.
+const sciHeader = new Header({
+  children: [
+    new Paragraph({
+      children: [
+        // Logo SCI — 4139565 × 1173480 EMU = ~11,5 cm × 3,26 cm
+        new ImageRun({
+          data: imgHeaderLogo,
+          type: 'png',
+          transformation: { width: 435, height: 123 },
+          floating: {
+            horizontalPosition: { relative: 'margin', offset: 998855 },
+            verticalPosition:   { relative: 'margin', offset: 3371850 },
+            behindDocument: true,
+            wrap: { type: 'none' },
+            allowOverlap: true,
+            layoutInCell: true,
+          },
+        }),
+        // Banner principal — 7590790 × 1085850 EMU = ~21 cm (largura total da página)
+        new ImageRun({
+          data: imgHeaderBanner,
+          type: 'png',
+          transformation: { width: 797, height: 114 },
+          floating: {
+            horizontalPosition: { relative: 'column', offset: -678815 },
+            verticalPosition:   { relative: 'paragraph', offset: -446405 },
+            behindDocument: true,
+            wrap: { type: 'none' },
+            allowOverlap: true,
+            layoutInCell: true,
+          },
+        }),
+      ],
+    }),
+  ],
+});
+
+// ─── Rodapé ─────────────────────────────────────────────────────────────────
+// Banner — 7571105 × 728980 EMU = ~21 cm (largura total da página)
+const sciFooter = new Footer({
+  children: [
+    new Paragraph({
+      children: [
+        new ImageRun({
+          data: imgFooterBanner,
+          type: 'png',
+          transformation: { width: 795, height: 77 },
+          floating: {
+            horizontalPosition: { relative: 'column', offset: -685800 },
+            verticalPosition:   { relative: 'paragraph', offset: 27940 },
+            behindDocument: true,
+            wrap: { type: 'none' },
+            allowOverlap: true,
+            layoutInCell: true,
+          },
+        }),
+      ],
+    }),
+  ],
+});
+
+// ─── Documento ──────────────────────────────────────────────────────────────
+const doc = new Document({
+  styles: {
+    default: {
+      document: {
+        run: { font: 'Exo 2.0', size: 24, language: { value: 'pt-BR' } },
+      },
+    },
+    paragraphStyles: [
+      {
+        id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+        run: { font: 'Exo 2.0', size: 40, bold: true },
+        paragraph: { spacing: { before: 0, after: 120 }, outlineLevel: 0 },
+      },
+      {
+        id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+        run: { font: 'Exo 2.0', size: 28, bold: true },
+        paragraph: { spacing: { before: 240, after: 120 }, outlineLevel: 1 },
+      },
+    ],
+  },
+
+  sections: [{
+    properties: {
+      page: {
+        size:   { width: 11906, height: 16838 },   // A4
+        margin: {
+          top:    2835,   // ~5 cm — NÃO ALTERE: protege o cabeçalho visual
+          bottom: 1559,
+          left:   1134,
+          right:  1134,
+          header: 720,
+          footer: 720,
+          gutter: 0,
+        },
+      },
+    },
+    headers: { default: sciHeader },
+    footers: { default: sciFooter },
+
+    children: [
+      // ── Título ──────────────────────────────────────────────────────────
+      new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.LEFT,
+        spacing: { after: 120, line: 264, lineRule: 'auto' },
+        children: [exoRun('TÍTULO', { size: 40, bold: true })],
+      }),
+
+      new Paragraph({ children: [exoRun('')] }),
+
+      // ── Subtítulo ────────────────────────────────────────────────────────
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        alignment: AlignmentType.LEFT,
+        spacing: { after: 120, line: 264, lineRule: 'auto' },
+        children: [exoRun('Subtítulo', { size: 28, bold: true })],
+      }),
+
+      // ── Parágrafo de corpo ───────────────────────────────────────────────
+      exoParagraph('Texto do documento aqui.', { spacingAfter: 200 }),
+    ],
+  }],
+});
+
+// ─── Salva ───────────────────────────────────────────────────────────────────
+Packer.toBuffer(doc).then(buffer => {
+  fs.writeFileSync('/mnt/user-data/outputs/documento_sci.docx', buffer);
+  console.log('Documento gerado: documento_sci.docx');
+});
+```
+
+---
+
+## Passos de Execução
+
+```bash
+# 1. Instalar dependência (se necessário)
+npm install -g docx
+
+# 2. Rodar o script
+node /home/claude/gerar_doc_sci.js
+
+# 3. Validar o arquivo gerado
+python /mnt/skills/public/docx/scripts/office/validate.py /mnt/user-data/outputs/documento_sci.docx
+```
+
+---
+
+## Customizações Comuns
+
+### Nova seção com subtítulo
+```javascript
+new Paragraph({
+  heading: HeadingLevel.HEADING_2,
+  children: [exoRun('Nova Seção', { size: 28, bold: true })],
+}),
+exoParagraph('Conteúdo da seção...'),
+```
+
+### Lista com marcadores
+```javascript
+// No Document, adicionar:
+numbering: {
+  config: [{
+    reference: 'sci-bullets',
+    levels: [{
+      level: 0, format: LevelFormat.BULLET, text: '•', alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 720, hanging: 360 } },
+               run: { font: 'Exo 2.0', size: 24 } }
+    }]
+  }]
+},
+// Item de lista:
+new Paragraph({
+  numbering: { reference: 'sci-bullets', level: 0 },
+  children: [exoRun('Item da lista')],
+}),
+```
+
+### Texto negrito inline
+```javascript
+new Paragraph({
+  children: [
+    exoRun('Texto normal, '),
+    exoRun('negrito', { bold: true }),
+    exoRun(' e normal.'),
+  ],
+}),
+```
+
+### Tabela
+```javascript
+new Table({
+  width: { size: 9638, type: WidthType.DXA },
+  columnWidths: [4819, 4819],
+  rows: [
+    new TableRow({
+      children: [
+        new TableCell({
+          width: { size: 4819, type: WidthType.DXA },
+          shading: { fill: '1A3055', type: ShadingType.CLEAR },
+          margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          children: [new Paragraph({ children: [exoRun('Cabeçalho', { bold: true, color: 'FFFFFF' })] })],
+        }),
+        new TableCell({
+          width: { size: 4819, type: WidthType.DXA },
+          margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          children: [new Paragraph({ children: [exoRun('Valor')] })],
+        }),
+      ],
+    }),
+  ],
+}),
+```
+
+---
+
+## Checklist antes de entregar
+
+- [ ] Fonte **Exo 2.0** em todos os `TextRun` e no estilo `default.document.run`
+- [ ] `transformation` dos banners: header_banner `{width:797, height:114}`, footer `{width:795, height:77}`
+- [ ] Margem `top: 2835` preservada — o conteúdo **nunca** invade o cabeçalho
+- [ ] Arquivo validado com `validate.py`
+- [ ] Arquivo salvo em `/mnt/user-data/outputs/`
+- [ ] `present_files` chamado para entregar o arquivo ao usuário
